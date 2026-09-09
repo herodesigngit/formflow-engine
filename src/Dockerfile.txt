@@ -1,0 +1,32 @@
+# مرحله اول: ساخت و نصب پکیج‌ها (Build Stage)
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# مرحله دوم: اجرای برنامه در محیط امن و سبک (Final Stage)
+FROM python:3.11-slim AS final
+
+WORKDIR /app
+
+# کپی کردن پکیج‌های نصب شده از مرحله قبل
+COPY --from=builder /root/.local /root/.local
+COPY ./src ./src
+COPY ./templates ./templates
+
+# ساخت پوشه خروجی به صورت ایمن
+RUN mkdir -p storage/output
+
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+# اجرای سرور با uvicorn
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
